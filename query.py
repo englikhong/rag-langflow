@@ -1,7 +1,7 @@
 """Query pipeline: embed → retrieve top-k → prompt Ollama → return answer."""
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain_chroma import Chroma
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 import config
 

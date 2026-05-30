@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
+from langchain_core.documents import Document
 
 import config
 
@@ -158,7 +159,7 @@ class LangflowClient:
             name = comp.get("component_display_name", "").lower()
             results = comp.get("results", {})
 
-            # Retriever / vector store component
+            # Retriever / vector store component — parse JSON into LangChain Documents
             if any(k in name for k in ("chroma", "retriev", "vector", "search")):
                 docs = results.get("documents", results.get("data", {}).get("documents", []))
                 if isinstance(docs, list):
@@ -171,7 +172,18 @@ class LangflowClient:
                             content = str(doc)
                             source = "unknown"
                             score = None
-                        trace.retrieved_chunks.append(RetrievedChunk(content=content, source=source, score=score))
+                        # Use LangChain Document to normalise the Langflow JSON payload
+                        lc_doc = Document(
+                            page_content=content,
+                            metadata={"source": source, "score": score},
+                        )
+                        trace.retrieved_chunks.append(
+                            RetrievedChunk(
+                                content=lc_doc.page_content,
+                                source=lc_doc.metadata["source"],
+                                score=lc_doc.metadata.get("score"),
+                            )
+                        )
 
             # LLM / model component → answer
             elif any(k in name for k in ("chat output", "chatoutput", "llm", "model", "text output")) and "input" not in name:

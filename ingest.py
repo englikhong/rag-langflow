@@ -8,7 +8,7 @@ from langchain_community.document_loaders import (
     TextLoader,
     DirectoryLoader,
 )
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 
@@ -69,6 +69,46 @@ def ingest(
     embed_and_store(chunks, persist_dir)
     print(f"  Done. Vectorstore persisted to {persist_dir}")
     return len(chunks)
+
+
+def get_vectorstore(persist_dir: str = config.CHROMA_DIR) -> Chroma:
+    embeddings = OllamaEmbeddings(
+        model=config.EMBED_MODEL,
+        base_url=config.OLLAMA_BASE_URL,
+    )
+    return Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+
+
+def get_all_chunks(persist_dir: str = config.CHROMA_DIR) -> dict:
+    """Return all chunks with ids, documents, and metadatas from ChromaDB."""
+    vs = get_vectorstore(persist_dir)
+    return vs.get(include=["documents", "metadatas"])
+
+
+def list_sources(persist_dir: str = config.CHROMA_DIR) -> list[str]:
+    """Return sorted list of unique source filenames stored in ChromaDB."""
+    vs = get_vectorstore(persist_dir)
+    result = vs.get(include=["metadatas"])
+    sources = {
+        Path(m["source"]).name
+        for m in result["metadatas"]
+        if m and "source" in m
+    }
+    return sorted(sources)
+
+
+def delete_by_source(source_name: str, persist_dir: str = config.CHROMA_DIR) -> int:
+    """Delete all chunks whose source filename matches source_name. Returns count deleted."""
+    vs = get_vectorstore(persist_dir)
+    result = vs.get(include=["metadatas"])
+    ids_to_delete = [
+        doc_id
+        for doc_id, m in zip(result["ids"], result["metadatas"])
+        if m and Path(m.get("source", "")).name == source_name
+    ]
+    if ids_to_delete:
+        vs.delete(ids=ids_to_delete)
+    return len(ids_to_delete)
 
 
 if __name__ == "__main__":
