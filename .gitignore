@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.env
+chroma_db/
+docs/
+*.pdf
+.DS_Store
